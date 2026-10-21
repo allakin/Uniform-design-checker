@@ -767,6 +767,104 @@ describe('скриншот, форма и сохранение варианта'
     assert.equal(env.api.state.mode, 'form');
   });
 
+  // Страница листается не окном, а внутренним контейнером: <main overflow:auto> высотой 800px с отступом 60px сверху.
+  function innerScroller(env, main, contentHeight) {
+    let top = 0;
+    const box = { left: 0, top: 60, width: 1000, height: 800, right: 1000, bottom: 860 };
+    Object.defineProperties(main, {
+      scrollTop: { get: () => top, set: (v) => (top = Math.max(0, Math.min(v, contentHeight - 800))), configurable: true },
+      scrollHeight: { get: () => contentHeight, configurable: true },
+      clientHeight: { get: () => 800, configurable: true },
+      clientWidth: { get: () => 1000, configurable: true },
+    });
+    env.window.innerHeight = 1000;
+    return { box, scrollTop: () => top, setScrollTop: (v) => (top = v) };
+  }
+
+  test('высокий блок во внутреннем скролл-контейнере склеивается прокруткой контейнера, а не окна', async () => {
+    const env = loadContent({ html: '<main id="main" style="overflow-y:auto"><article id="long">Длинная форма</article></main>' });
+    const main = env.document.getElementById('main');
+    const el = env.document.getElementById('long');
+    const s = innerScroller(env, main, 2000);
+    let windowScrolls = 0;
+    env.window.scrollTo = (o) => o.top && windowScrolls++;
+    env.window.Element.prototype.getBoundingClientRect = function () {
+      if (this === main) return s.box;
+      if (this !== el) return { left: 0, top: 0, width: 10, height: 10, right: 10, bottom: 10 };
+      const top = 60 - s.scrollTop();
+      return { left: 0, top, width: 500, height: 2000, right: 500, bottom: top + 2000 };
+    };
+    el.scrollIntoView = () => s.setScrollTop(0);
+    s.setScrollTop(300);
+    await env.send({ type: 'udc:start', review: { id: 'r', title: 'R' } });
+    env.pointAt(el);
+    env.fire(el, 'click');
+    await env.sleep(1500);
+    const captures = env.chrome.runtime.sendMessage.mock.calls.filter((c) => c.arguments[0].type === 'udc:capture').length;
+    assert.equal(captures, 3); // 800 + 800 + 400
+    assert.equal(windowScrolls, 0);
+    assert.equal(env.api.state.shot.truncated, false);
+    assert.equal(env.api.state.shot.height, 2000 * 2);
+    assert.equal(s.scrollTop(), 300, 'прокрутка контейнера возвращается на место');
+  });
+
+  test('выбранный прокручиваемый контейнер снимается со всем содержимым', async () => {
+    const env = loadContent({ html: '<main id="main" style="overflow-y:auto"><p>Форма</p></main>' });
+    const main = env.document.getElementById('main');
+    const s = innerScroller(env, main, 1800);
+    env.window.Element.prototype.getBoundingClientRect = function () {
+      return this === main ? s.box : { left: 0, top: 0, width: 10, height: 10, right: 10, bottom: 10 };
+    };
+    await env.send({ type: 'udc:start', review: { id: 'r', title: 'R' } });
+    env.pointAt(main);
+    env.fire(main, 'click');
+    await env.sleep(1500);
+    const captures = env.chrome.runtime.sendMessage.mock.calls.filter((c) => c.arguments[0].type === 'udc:capture').length;
+    assert.equal(captures, 3); // 800 + 800 + 200
+    assert.equal(env.api.state.shot.truncated, false);
+    assert.equal(env.api.state.shot.height, 1800 * 2);
+    assert.equal(s.scrollTop(), 0);
+  });
+
+  test('выбранный body снимает всю страницу, даже если body высотой с экран (html, body { height: 100% })', async () => {
+    const env = loadContent({ html: '<div id="c">Контент</div>' });
+    const html = env.document.documentElement;
+    let scrolled = 0;
+    env.window.scrollTo = (o) => (scrolled = Math.min(o.top, 2000));
+    Object.defineProperty(env.window, 'scrollY', { get: () => scrolled });
+    Object.defineProperty(html, 'scrollHeight', { get: () => 3000, configurable: true });
+    env.window.innerHeight = 1000;
+    env.window.Element.prototype.getBoundingClientRect = function () {
+      return { left: 0, top: 0, width: 1024, height: 1000, right: 1024, bottom: 1000 };
+    };
+    await env.send({ type: 'udc:start', review: { id: 'r', title: 'R' } });
+    env.pointAt(env.document.body);
+    env.fire(env.document.body, 'click');
+    await env.sleep(1500);
+    const captures = env.chrome.runtime.sendMessage.mock.calls.filter((c) => c.arguments[0].type === 'udc:capture').length;
+    assert.equal(captures, 3);
+    assert.equal(env.api.state.shot.height, 3000 * 2);
+    assert.equal(env.api.state.shot.truncated, false);
+  });
+
+  test('выбранный body в приложении с внутренней прокруткой: шапка + всё содержимое области', async () => {
+    const env = loadContent({ html: '<main id="main" style="overflow-y:auto"><p>Форма</p></main>' });
+    const main = env.document.getElementById('main');
+    const s = innerScroller(env, main, 1800); // область 60…860 из экрана 1000
+    env.window.Element.prototype.getBoundingClientRect = function () {
+      return this === main ? s.box : { left: 0, top: 0, width: 1024, height: 1000, right: 1024, bottom: 1000 };
+    };
+    s.setScrollTop(300);
+    await env.send({ type: 'udc:start', review: { id: 'r', title: 'R' } });
+    env.pointAt(env.document.body);
+    env.fire(env.document.body, 'click');
+    await env.sleep(1500);
+    const captures = env.chrome.runtime.sendMessage.mock.calls.filter((c) => c.arguments[0].type === 'udc:capture').length;
+    assert.equal(captures, 3); // 800 + 800 + 200
+    assert.equal(env.api.state.shot.height, (1000 + 1000) * 2); // экран + то, что спрятано в области
+    assert.equal(s.scrollTop(), 300);
+  });
+
   test('выбор нативного select снимает его вместе с эмулированным списком и удаляет копию', async () => {
     const env = await formFor('#s', { html: '<select id="s"><option>A</option><option>B</option></select>' });
     assert.equal(env.document.querySelector('[data-udc-select-list]'), null);
