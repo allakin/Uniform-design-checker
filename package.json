@@ -1,6 +1,6 @@
 {
   "name": "uniform-design-checker",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "private": true,
   "license": "MIT",
   "description": "Uniform Design Checker — расширение браузера для дизайн-ревью вёрстки. Здесь — тесты и служебные скрипты.",
