@@ -279,6 +279,11 @@ describe('репозиторий', () => {
     assert.ok(read('CHANGELOG.md').startsWith(HEADER));
   });
 
+  // С [skip ci] в последнем коммите pull request develop → main GitHub не запускает job publish — релиз не выходит.
+  test('коммиты бота в release.yml без [skip ci]', () => {
+    assert.doesNotMatch(read('.github/workflows/release.yml'), /MESSAGE="[^"]*\[(skip ci|ci skip|no ci|skip actions|actions skip)\]/i);
+  });
+
   test('каталоги из «Структуры» не пустые', () => {
     for (const d of ['lib', 'content', 'popup', 'pages', 'icons']) {
       assert.ok(statSync(path(d)).isDirectory() && readdirSync(path(d)).length, d);
