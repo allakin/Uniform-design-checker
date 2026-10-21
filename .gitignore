@@ -1,0 +1,9 @@
+.DS_Store
+
+# Результаты ревью: сама папка хранится в репозитории (через .gitkeep), содержимое — нет
+uniform-reviews-results/*
+!uniform-reviews-results/.gitkeep
+
+# Зависимости для тестов
+node_modules/
+coverage/

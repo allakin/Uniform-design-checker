@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <title>Uniform Design — ревью</title>
+  <link rel="icon" href="../icons/icon32.png?v=3">
+  <link rel="stylesheet" href="review.css">
+</head>
+<body>
+  <aside class="side">
+    <div class="brand"><img src="../icons/icon48.png" alt="" width="22" height="22"> Uniform Design</div>
+    <button class="btn btn-primary" id="btn-new">+ Новое ревью</button>
+    <div class="finder">
+      <div class="search">
+        <span id="search-icon"></span>
+        <input type="search" id="search" placeholder="Поиск по ревью, группам и страницам" autocomplete="off">
+      </div>
+      <select id="sort" title="Сортировка">
+        <option value="updated-desc">Недавно изменённые</option>
+        <option value="created-desc">Сначала новые</option>
+        <option value="created-asc">Сначала старые</option>
+        <option value="title-asc">По названию</option>
+        <option value="issues-desc">Больше вариантов</option>
+      </select>
+      <div class="found" id="found"></div>
+    </div>
+    <div class="list-wrap" id="list-wrap">
+      <div class="list-shade top" aria-hidden="true"></div>
+      <ul id="review-list" class="review-list"></ul>
+      <div class="list-shade bottom" aria-hidden="true"></div>
+    </div>
+    <section id="folder" class="folder"></section>
+  </aside>
+  <main id="main" class="main"></main>
+  <dialog id="danger" class="danger-dlg"></dialog>
+  <script type="module" src="review.js"></script>
+</body>
+</html>

@@ -1,0 +1,22 @@
+<!-- Иконка расширения (сетка 32): из неё растрируются icon32.png, icon48.png, icon128.png.
+     Два блока с одинаковой формой, но разным оформлением, и знак «≠» под ними. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <defs>
+  <linearGradient id="g" x1="0" y1="0" x2="0" y2="32" gradientUnits="userSpaceOnUse">
+  <stop offset="0" stop-color="#8b5cf6"/>
+  <stop offset="1" stop-color="#5b21b6"/>
+  </linearGradient>
+  <linearGradient id="h" x1="0" y1="0" x2="0" y2="32" gradientUnits="userSpaceOnUse">
+  <stop offset="0" stop-color="#fff" stop-opacity=".22"/>
+  <stop offset=".5" stop-color="#fff" stop-opacity="0"/>
+  </linearGradient>
+  </defs>
+  <rect width="32" height="32" rx="7" fill="url(#g)"/>
+  <rect width="32" height="32" rx="7" fill="url(#h)"/>
+  <rect x=".25" y=".25" width="31.5" height="31.5" rx="6.75" fill="none" stroke="#fff" stroke-opacity=".18" stroke-width=".5"/>
+  <rect x="5.75" y="6.25" width="8" height="8.5" rx="2.75" fill="none" stroke="#fff" stroke-width="2.5"/>
+  <rect x="17" y="5" width="10.5" height="11" rx="1" fill="#fff"/>
+  <g fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round">
+  <path d="M9.5 21H22.5M9.5 25.5H22.5M18.5 18.5 13.5 28"/>
+  </g>
+</svg>

@@ -1,0 +1,80 @@
+name: Tests
+
+on:
+  push:
+    # В ветке badges только JSON плашек, его публикует job badges ниже.
+    branches-ignore: [badges]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Tests (Node ${{ matrix.node }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [22, 24, 26]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+      - run: npm ci
+      - run: npm test
+
+  # Плашки наборов в README живые: shields.io читает JSON из ветки badges (scripts/badges.js).
+  # Публикуем их только из основной ветки — плашки показывают её состояние. Ветка badges каждый раз
+  # перезаписывается одним коммитом: история не растёт, конфликтов нет, README бот больше не трогает.
+  # Плашка All tests — статус этого workflow в основной ветке, её GitHub отдаёт сам.
+  badges:
+    name: Publish test badges
+    if: github.event_name != 'pull_request' && github.ref_name == github.event.repository.default_branch
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    concurrency:
+      group: test-badges
+      cancel-in-progress: true
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+
+      # badges.js пишет JSON и при упавших тестах (плашка станет «failing»), но выходит с кодом 1.
+      # Запоминаем код, чтобы сначала опубликовать плашки, а потом уронить job.
+      - name: Run test suites and build badge JSON
+        id: badges
+        run: |
+          set +e
+          npm run badges -- --out "$RUNNER_TEMP/badges"
+          echo "exit_code=$?" >> "$GITHUB_OUTPUT"
+
+      - name: Publish badge JSON to the badges branch
+        env:
+          TOKEN: ${{ github.token }}
+        run: |
+          if ! ls "$RUNNER_TEMP"/badges/*.json > /dev/null 2>&1; then
+            echo "::error::npm run badges не записал JSON плашек — смотрите вывод предыдущего шага."
+            exit 1
+          fi
+          cd "$RUNNER_TEMP/badges"
+          git init -q -b badges
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -q -m "Плашки тестов для ${GITHUB_SHA::7}"
+          git push -q -f "https://x-access-token:${TOKEN}@github.com/${GITHUB_REPOSITORY}.git" HEAD:badges
+
+      - name: Fail if tests failed
+        if: steps.badges.outputs.exit_code != '0'
+        run: |
+          echo "::error::Тесты упали — плашки наборов помечены как failing."
+          exit 1

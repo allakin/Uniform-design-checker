@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <title>Uniform Design — папка для результатов</title>
+  <link rel="icon" href="../icons/icon32.png?v=3">
+  <link rel="stylesheet" href="setup.css">
+</head>
+<body>
+  <main class="card">
+    <div class="brand"><img src="../icons/icon48.png" alt="" width="24" height="24"> Uniform Design</div>
+    <div class="step">Первый запуск</div>
+    <h1>Подключите папку uniform-reviews-results</h1>
+    <div class="restore-intro" hidden>
+      <p>Выберите папку с прошлыми ревью — по умолчанию это <code>uniform-reviews-results</code> в папке расширения.</p>
+      <p class="note">Папка откроется только для чтения. Разрешение на запись браузер попросит позже, в окне расширения.</p>
+    </div>
+
+    <div class="grant-intro" hidden>
+      <p>Нажмите кнопку и в запросе браузера выберите «Разрешать всегда» (<i>Allow on every visit</i>) —
+        больше он спрашивать не будет.</p>
+    </div>
+
+    <div class="connect-info">
+    <p>
+      Результаты ревью сохраняются в папку <code>uniform-reviews-results</code>, которая лежит в папке расширения.
+      Браузер разрешает расширению писать на диск только в папку, которую вы один раз укажете сами, —
+      поэтому выберите её в следующем окне.
+    </p>
+    <pre class="tree">Uniform design checker/          ← папка расширения
+├── manifest.json
+├── …
+└── <b>uniform-reviews-results/</b>      ← выберите эту папку
+    └── &lt;Название ревью&gt; — 2026-10-16/
+        ├── Отчёт.html
+        ├── review.json
+        └── screenshots/</pre>
+
+    <p class="note">
+      Можно выбрать и саму папку расширения — <code>uniform-reviews-results</code> в ней подхватится автоматически
+      (если её нет, расширение создаст). Содержимое <code>uniform-reviews-results</code> уже исключено в <code>.gitignore</code>
+      и в репозиторий не попадёт.
+    </p>
+
+    <p class="note">
+      Переустановили расширение или сохраняли результаты в другую папку? Выберите папку, где лежат ваши ревью, —
+      сохранённые в ней ранее ревью подтянутся обратно вместе со скриншотами.
+    </p>
+    </div>
+
+    <div id="state"></div>
+  </main>
+  <script type="module" src="setup.js"></script>
+</body>
+</html>
