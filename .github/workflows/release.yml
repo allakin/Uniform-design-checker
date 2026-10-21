@@ -48,10 +48,12 @@ jobs:
             echo "Версия и CHANGELOG.md не изменились."
             exit 0
           fi
-          MESSAGE="Обновить CHANGELOG.md [skip ci]"
+          # Без [skip ci]: коммит бота часто последний в pull request develop → main, а с этой меткой
+          # GitHub не запускает и job publish после merge. Зацикливания нет: push с GITHUB_TOKEN не запускает workflow.
+          MESSAGE="Обновить CHANGELOG.md"
           if ! git diff --quiet -- manifest.json; then
             VERSION=$(node -p "require('./manifest.json').version")
-            MESSAGE="Поднять версию до $VERSION и обновить CHANGELOG.md [skip ci]"
+            MESSAGE="Поднять версию до $VERSION и обновить CHANGELOG.md"
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
