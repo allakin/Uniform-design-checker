@@ -1,8 +1,8 @@
 // Собирает раздел CHANGELOG.md для версии из manifest.json по коммитам с последнего тега-релиза
 // и вставляет его в начало файла (раздел этой версии, если уже есть, заменяется — повторный запуск ничего не дублирует).
 // С --draft по тем же коммитам собирается черновик релиза v<версия> на GitHub — коротко и по-русски:
-// сводка, заметные изменения по группам, внутренние — одной строкой. Черновик создаётся или обновляется,
-// опубликованный релиз не трогается.
+// сводка, заметные изменения по группам, внутренние — одной строкой. Черновик создаётся или обновляется
+// с целевой веткой main, опубликованный релиз не трогается.
 // С --bump (вместе с --draft, в CI): если текущая версия уже выпущена, а с неё менялись файлы расширения,
 // версия в manifest.json, package.json и package-lock.json поднимается сама — по коммитам (см. nextVersion).
 // С --publish черновик публикуется как есть (с ручными правками), тег ставится на TARGET_SHA или HEAD;
@@ -12,7 +12,7 @@
 import { execFileSync } from 'node:child_process';
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { repoSlug, parseVersion, compareVersions, fetchReleases } from './badges.js';
+import { repoSlug, parseVersion, compareVersions, fetchReleases, DEFAULT_BRANCH } from './badges.js';
 
 const ROOT = fileURLToPath(new URL('../', import.meta.url));
 const CHANGELOG = `${ROOT}CHANGELOG.md`;
@@ -376,8 +376,8 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   }
 
   if (draft && !dryRun) {
-    const target = process.env.BRANCH || git('rev-parse', '--abbrev-ref', 'HEAD').trim();
-    const { action, url } = await syncDraft(repo, { tag, notes, target, replaces: replaces && `v${replaces}` });
+    // Черновик целится в main: релиз выходит туда, тег при публикации ставится на merge-коммит в main.
+    const { action, url } = await syncDraft(repo, { tag, notes, target: DEFAULT_BRANCH, replaces: replaces && `v${replaces}` });
     const verb = { created: 'создан', updated: 'обновлён', skipped: 'уже опубликован — не трогаю' }[action];
     console.log(`Черновик релиза ${tag} ${verb}: ${url}`);
   }

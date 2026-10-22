@@ -15,7 +15,7 @@ const README = `${ROOT}README.md`;
 
 const WORKFLOW = 'tests.yml';
 const BADGES_BRANCH = 'badges';
-const DEFAULT_BRANCH = 'main';
+export const DEFAULT_BRANCH = 'main';
 
 // id — имя JSON-файла плашки в ветке badges.
 export const SUITES = [
@@ -109,7 +109,7 @@ export function badgesMarkdown(repo, branch = DEFAULT_BRANCH) {
   return [
     '[![Browser extension](https://img.shields.io/badge/Browser-extension-e05d44?logo=googlechrome&logoColor=white)](#установка)',
     '![Manifest V3](https://img.shields.io/badge/Manifest-V3-4285f4?logo=googlechrome&logoColor=white)',
-    `[![Release](https://img.shields.io/github/v/release/${repo}?sort=semver&label=release&color=2ea44f&logo=github&logoColor=white)](https://github.com/${repo}/releases)`,
+    `[![Release](https://img.shields.io/github/v/release/${repo}?sort=semver&label=release&color=2ea44f&logo=github&logoColor=white)](https://github.com/${repo}/releases/latest)`,
     `[![All tests](https://img.shields.io/github/actions/workflow/status/${repo}/${WORKFLOW}?branch=${branch}&label=All%20tests&logo=github&logoColor=white)](${workflow})`,
     ...SUITES.map((s) => `[![${s.label}](${endpoint(s.id)})](${workflow})`),
   ].join('\n');
