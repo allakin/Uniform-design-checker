@@ -345,6 +345,19 @@ describe('installToc (навигация «В этом отчёте»)', () => {
     dom.window.close();
   });
 
+  test('возвращает функцию, которая снимает обработчики окна', () => {
+    const { dom, doc } = setup();
+    const win = dom.window;
+    const removed = [];
+    const original = win.removeEventListener.bind(win);
+    win.removeEventListener = (type, fn) => (removed.push(type), original(type, fn));
+    const dispose = installToc(doc);
+    assert.equal(typeof dispose, 'function');
+    dispose();
+    assert.deepEqual(removed.sort(), ['resize', 'scroll', 'scrollend']);
+    dom.window.close();
+  });
+
   test('без навигации (пустое ревью) не падает', () => {
     const dom = new JSDOM(`<!doctype html><body>${buildReportBody(makeReview())}</body>`);
     assert.doesNotThrow(() => installToc(dom.window.document));

@@ -1,5 +1,5 @@
 import * as store from '../lib/store.js';
-import { escapeHtml, formatDate, LIGHTBOX_CSS, MD_CSS, installLightbox, lightboxIcons } from '../lib/report.js';
+import { escapeHtml, formatDate, LIGHTBOX_CSS, MD_CSS, installLightbox, installToc, lightboxIcons } from '../lib/report.js';
 import { groupsOf, pagesCount, pageKey } from '../lib/groups.js';
 import * as folder from '../lib/folder.js';
 import { normalizeUrl, safeHref } from '../lib/url.js';
@@ -19,6 +19,7 @@ document.body.append(savedEl);
 let currentId = new URLSearchParams(location.search).get('id');
 let lastLocalWrite = 0;
 let savedTimer = 0;
+let disposeToc = null; // снимает подсветку навигации «В этом ревью» прошлой отрисовки
 
 function flashSaved() {
   savedEl.classList.add('show');
@@ -275,6 +276,8 @@ async function render() {
     return render();
   }
   const review = await store.getReview(currentId);
+  disposeToc?.();
+  disposeToc = null;
   if (!review) {
     main.innerHTML = `<div class="empty"><b>Ревью не выбрано</b>Создайте новое ревью или выберите его слева.</div>`;
     return;
@@ -288,7 +291,9 @@ async function render() {
   const entries = groupsOf(review);
 
   main.innerHTML = `
-    <div class="top">
+    <div class="rv-layout">
+    <div class="rv-content">
+    <div class="top" id="review-head">
       <div class="fields">
         <input class="title-input" data-field="review-title" maxlength="200">
         <input class="author-input" data-field="review-author" maxlength="100" placeholder="Ревьюер">
@@ -305,7 +310,7 @@ async function render() {
         <button class="btn btn-primary" data-act="pdf" ${issues.length ? '' : 'disabled'}>${icon('download', 14)} Экспорт PDF</button>
       </div>
     </div>
-    <div class="summary">
+    <div class="summary" id="groups">
       <button class="btn btn-light" data-act="add-group">${icon('plus', 14)} Новая группа</button>
       <span style="flex:1"></span>
       ${
@@ -319,7 +324,10 @@ async function render() {
       entries.length
         ? entries.map((e, k) => groupHtml(e, k, entries, review)).join('')
         : `<div class="empty"><b>Блоков пока нет</b>Откройте сайт, нажмите на иконку расширения → «Выбрать элемент», выделите блок и сохраните его в группу. Тот же блок на других страницах добавляйте в эту же группу — здесь будет видно, чем варианты отличаются.</div>`
-    }`;
+    }
+    </div>
+    ${navHtml(entries)}
+    </div>`;
 
   const titleInput = main.querySelector('[data-field=review-title]');
   const authorInput = main.querySelector('[data-field=review-author]');
@@ -373,6 +381,7 @@ async function render() {
     bindGroup(card, review, entry);
   }
   for (const card of main.querySelectorAll('[data-issue]')) bindVariant(card, review, issues.find((i) => i.id === card.dataset.issue));
+  disposeToc = installToc(document);
 
   if (focusKey) {
     const [scope, field, s, e] = focusKey;
@@ -393,11 +402,33 @@ async function render() {
 
 const plural4 = (n, one, few, many) => `${n} ${plural(n, one, few, many)}`;
 
+// Якорь карточки группы; у варианта без группы своего id нет.
+const groupAnchor = (group) => (group.id ? `group-${group.id}` : 'group-ungrouped');
+
+// Боковая навигация «В этом ревью» — как «В этом отчёте» в отчёте (lib/report.js); текущий раздел подсвечивает installToc.
+function navHtml(entries) {
+  if (!entries.length) return '';
+  return `<nav class="r-nav" aria-label="Навигация по ревью"><div class="r-nav-inner">
+      <div class="r-nav-title">В этом ревью:</div>
+      <ul>
+        <li><a href="#review-head">Ревью</a></li>
+        <li><a href="#groups">Группы блоков</a>
+          <ul>${entries
+            .map(
+              ({ group }, k) =>
+                `<li><a href="#${escapeHtml(groupAnchor(group))}" data-nav-group="${escapeHtml(group.id)}"><span class="r-nav-num">#${k + 1}</span> <span class="r-nav-text">${escapeHtml(group.title)}</span></a></li>`,
+            )
+            .join('')}</ul>
+        </li>
+      </ul>
+    </div></nav>`;
+}
+
 function groupHtml({ group, variants }, k, entries, review) {
   const orphan = !group.id;
   const pages = pagesCount(variants);
   return `
-  <section class="group" id=""group-${escapeHtml(group.id)}" data-group="${escapeHtml(group.id)}" data-scope="g:${escapeHtml(group.id)}">
+  <section class="group" id="${escapeHtml(groupAnchor(group))}" data-group="${escapeHtml(group.id)}" data-scope="g:${escapeHtml(group.id)}">
     <div class="group-head">
       <span class="num group-num">#${k + 1}</span>
       ${orphan ? `<h2 class="group-title"></h2>` : '<input type="text" data-field="title" maxlength="200" placeholder="Название группы">'}
@@ -493,6 +524,9 @@ function bindGroup(card, review, { group, variants }) {
     write(() => store.updateGroup(review.id, group.id, patch));
   }, 400);
   for (const name of ['title', 'mockupUrl']) f(name).addEventListener('input', save);
+  // Своя правка страницу не перерисовывает — название в навигации меняем сразу
+  const navText = main.querySelector(`.r-nav [data-nav-group="${group.id}"] .r-nav-text`);
+  f('title').addEventListener('input', () => (navText.textContent = f('title').value.trim() || 'Без названия'));
   const editor = mountEditor(card.querySelector('[data-md]'), { value: group.description || '', onChange: save, askLink });
 
   card.querySelector('.group-head [data-act=up]').addEventListener('click', async () => {
