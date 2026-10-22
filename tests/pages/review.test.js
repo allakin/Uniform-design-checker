@@ -692,6 +692,29 @@ describe('папка для результатов', () => {
     assert.equal(page.root.permission, 'prompt');
   });
 
+  // В jsdom нет вёрстки, поэтому проверяем правила, на которых держится раскладка. Однажды блок уже ломался:
+  // прокрутку перенесли с .main на страницу, а у body осталась height: 100%, и панель уезжала вверх.
+  test('блок папки прижат к низу боковой панели, панель не уезжает при прокрутке страницы', async () => {
+    const page = await seed();
+    const side = page.$('aside.side');
+    assert.equal(side.lastElementChild, page.$('#folder'));
+    assert.equal(side.lastElementChild.previousElementSibling, page.$('#list-wrap'));
+
+    const css = readFileSync(new URL('../../pages/review.css', import.meta.url), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+    const rules = [...css.matchAll(/(?<=^|\})\s*([^{}@]+?)\s*\{([^}]*)\}/g)].map(([, sel, body]) => ({ sel: sel.split(',').map((s) => s.trim()), body }));
+    const rule = (sel) => rules.filter((r) => r.sel.includes(sel)).map((r) => r.body).join(';');
+    // Список забирает всё свободное место — блок папки уходит вниз
+    assert.match(rule('.side'), /display: flex; flex-direction: column;/);
+    assert.match(rule('.side > .list-wrap'), /flex: 1 1 auto;/);
+    // Панель липкая на всю высоту окна
+    assert.match(rule('.side'), /position: sticky; top: 0; height: 100vh;/);
+    // Липкому элементу нужен родитель высотой со всю страницу: фиксированная высота у html/body его ломает
+    assert.match(rule('body'), /min-height: 100vh;/);
+    assert.doesNotMatch(rule('body') + rule('html'), /(?<![-\w])height:/);
+    // Прокручивается страница: свой скролл у .main снова оторвал бы панель от прокрутки
+    assert.doesNotMatch(rule('.main'), /overflow(-y)?: (auto|scroll)/);
+  });
+
   test('с доступом блок папки просит не закрывать страницу', async () => {
     const page = await seed();
     assert.match(page.$('#folder').textContent, /Не закрывайте эту страницу: пока она открыта, ревью сохраняются в папку/);
