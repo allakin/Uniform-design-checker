@@ -3,6 +3,21 @@
 Все заметные изменения расширения. Формат — [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/), версии — [SemVer](https://semver.org/lang/ru/).
 Разделы собирает `npm run changelog-prepend` из сообщений коммитов; после сборки их можно поправить руками.
 
+## [1.1.0] — 2026-10-22
+
+### Новое
+
+- Навигация «В этом ревью» на странице ревью ([bec6fc3](https://github.com/allakin/Uniform-design-checker/commit/bec6fc3108d50734f8475b55fb2dae1766323af7))
+
+### Исправления
+
+- Блок «Папка для результатов» снова прижат к низу панели ([87b553d](https://github.com/allakin/Uniform-design-checker/commit/87b553d4cb2e6532b071477c3d6ddcb8d92b0670))
+- Скриншот длинной страницы теперь снимается целиком — и когда она прокручивается внутренним контейнером, и когда выбран… ([c2e7c4a](https://github.com/allakin/Uniform-design-checker/commit/c2e7c4a34ec3c902626d8078ff5f59872ddb9aa7))
+
+### Служебное
+
+- Черновик релиза целится в main, плашка Release ведёт на последний релиз ([8e6902e](https://github.com/allakin/Uniform-design-checker/commit/8e6902e455c8efbf39e3429a9e52e7ab564da0c9))
+
 ## [1.0.0] — 2026-10-21
 
 ### Изменения

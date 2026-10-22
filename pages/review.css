@@ -25,9 +25,11 @@
   --card-shadow: inset 0 1px 0 rgba(255, 255, 255, .05), 0 24px 50px rgba(0, 0, 0, .28);
 }
 * { box-sizing: border-box; }
-html, body { height: 100%; }
 body {
   margin: 0;
+  /* min-height, а не height: прокручивается вся страница, и строка сетки должна расти с ревью —
+     иначе липкой боковой панели некуда ехать, и после первого экрана она уезжает вверх вместе с блоком папки */
+  min-height: 100vh;
   display: grid;
   grid-template-columns: 280px 1fr;
   color: var(--text);
@@ -90,7 +92,25 @@ button { font: inherit; cursor: pointer; border: 0; border-radius: 10px; color: 
 .review-list small { color: var(--text-3); font-size: 11px; }
 .badge { font-size: 10px; font-weight: 700; color: var(--accent-soft); text-transform: uppercase; letter-spacing: .06em; margin-left: 4px; }
 
-.main { padding: 32px 40px 64px; overflow: auto; max-width: 1240px; width: 100%; }
+/* overflow: clip, а не auto: прокручиваемый предок сломал бы липкую навигацию «В этом ревью» */
+.main { padding: 32px 40px 64px; overflow-x: clip; min-width: 0; max-width: 1520px; width: 100%; }
+/* Ревью слева, справа — липкая навигация «В этом ревью» (как в отчёте); на узком экране её нет.
+   Колонка навигации тянется на всю высоту ревью (align-items: stretch) — иначе липкому блоку внутри некуда ехать. */
+.rv-layout { display: flex; gap: 32px; align-items: stretch; }
+.rv-content { flex: 1 1 auto; min-width: 0; max-width: 1160px; }
+.r-nav { flex: none; width: 248px; align-self: stretch; }
+.r-nav-inner { position: sticky; top: 32px; max-height: calc(100vh - 64px); overflow-y: auto; scrollbar-width: thin; scrollbar-color: rgba(255, 255, 255, .12) transparent; }
+.r-nav-title { font-size: 15px; font-weight: 600; margin: 0 0 12px; color: var(--text); }
+.r-nav ul { list-style: none; margin: 0; padding: 0; }
+.r-nav-inner > ul { border-left: 2px solid var(--line); }
+.r-nav a { display: block; margin-left: -2px; padding: 6px 0 6px 16px; border-left: 2px solid transparent; color: var(--text-3); text-decoration: none; font-size: 13px; line-height: 1.35; overflow-wrap: anywhere; transition: color .12s, border-color .12s; }
+.r-nav ul ul a { padding-left: 30px; }
+.r-nav a:hover { color: var(--text-2); }
+.r-nav a.active { color: var(--text); border-left-color: var(--accent); }
+.r-nav-num { font-variant-numeric: tabular-nums; }
+@media (max-width: 1399px) { .r-nav { display: none; } }
+@media (prefers-reduced-motion: no-preference) { html { scroll-behavior: smooth; } }
+.top, .summary, .group { scroll-margin-top: 24px; }
 .top { display: flex; gap: 20px; align-items: flex-start; margin-bottom: 20px; }
 .top .fields { flex: 1; display: flex; flex-direction: column; gap: 6px; }
 .title-input { font: 600 28px/1.25 sans-serif; font-family: inherit; letter-spacing: -.02em; border: 1px solid transparent; border-radius: 10px; padding: 2px 8px; margin-left: -9px; background: transparent; color: var(--text); width: 100%; }

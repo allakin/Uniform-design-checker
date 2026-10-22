@@ -251,6 +251,39 @@ describe('группы и варианты', () => {
     assert.equal(c.id, page.a1.id, 'якорь для ссылок из окна расширения');
   });
 
+  test('навигация «В этом ревью»: ревью, группы блоков и каждая группа — со ссылками на карточки', async () => {
+    const page = await alphaPage();
+    const nav = page.$('.rv-layout > nav.r-nav');
+    assert.ok(nav);
+    assert.equal(nav.querySelector('.r-nav-title').textContent, 'В этом ревью:');
+    const links = [...nav.querySelectorAll('a')];
+    assert.deepEqual(links.map((a) => a.textContent), ['Ревью', 'Группы блоков', '#1 Кнопка', '#2 Шапка']);
+    for (const a of links) assert.ok(page.document.getElementById(a.getAttribute('href').slice(1)), a.getAttribute('href'));
+    assert.equal(page.document.getElementById(`group-${page.g1.id}`), group(page, page.g1));
+    assert.equal(nav.querySelectorAll('a.active').length, 1, 'текущий раздел подсвечен');
+    nav.querySelector(`a[href="#group-${page.g2.id}"]`).click();
+    assert.deepEqual([...nav.querySelectorAll('a.active')].map((a) => a.textContent), ['#2 Шапка']);
+  });
+
+  test('навигация: новое название группы видно сразу; в пустом ревью навигации нет', async () => {
+    const page = await alphaPage();
+    page.input(group(page, page.g1).querySelector('[data-field=title]'), 'Кнопка «Удалить»');
+    assert.equal(page.$(`.r-nav a[href="#group-${page.g1.id}"]`).textContent, '#1 Кнопка «Удалить»');
+    await sleep(500); // отложенное сохранение названия
+    await openReview(page, page.beta);
+    assert.equal(page.$('.r-nav'), null);
+  });
+
+  test('навигация: стили тёмной темы, на узком экране скрыта, липкость не ломает прокручиваемый .main', () => {
+    const css = readFileSync(new URL('../../pages/review.css', import.meta.url), 'utf8');
+    assert.match(css, /\.r-nav-inner \{ position: sticky;/);
+    // Липкий блок едет только в пределах своей колонки: она должна быть высотой со всё ревью
+    assert.match(css, /\.rv-layout \{[^}]*align-items: stretch;/);
+    assert.match(css, /\.r-nav \{[^}]*align-self: stretch;/);
+    assert.match(css, /@media \(max-width: 1399px\) \{ \.r-nav \{ display: none; \} \}/);
+    assert.doesNotMatch(css.match(/\.main \{[^}]*\}/)[0], /overflow: auto/);
+  });
+
   test('правка группы сохраняется: название, описание, макет; некорректная ссылка — нет', async () => {
     const page = await alphaPage();
     const g = group(page, page.g1);
@@ -657,6 +690,29 @@ describe('папка для результатов', () => {
     page.$('#folder').dispatchEvent(new page.window.MouseEvent('click', { bubbles: true }));
     await sleep(60);
     assert.equal(page.root.permission, 'prompt');
+  });
+
+  // В jsdom нет вёрстки, поэтому проверяем правила, на которых держится раскладка. Однажды блок уже ломался:
+  // прокрутку перенесли с .main на страницу, а у body осталась height: 100%, и панель уезжала вверх.
+  test('блок папки прижат к низу боковой панели, панель не уезжает при прокрутке страницы', async () => {
+    const page = await seed();
+    const side = page.$('aside.side');
+    assert.equal(side.lastElementChild, page.$('#folder'));
+    assert.equal(side.lastElementChild.previousElementSibling, page.$('#list-wrap'));
+
+    const css = readFileSync(new URL('../../pages/review.css', import.meta.url), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+    const rules = [...css.matchAll(/(?<=^|\})\s*([^{}@]+?)\s*\{([^}]*)\}/g)].map(([, sel, body]) => ({ sel: sel.split(',').map((s) => s.trim()), body }));
+    const rule = (sel) => rules.filter((r) => r.sel.includes(sel)).map((r) => r.body).join(';');
+    // Список забирает всё свободное место — блок папки уходит вниз
+    assert.match(rule('.side'), /display: flex; flex-direction: column;/);
+    assert.match(rule('.side > .list-wrap'), /flex: 1 1 auto;/);
+    // Панель липкая на всю высоту окна
+    assert.match(rule('.side'), /position: sticky; top: 0; height: 100vh;/);
+    // Липкому элементу нужен родитель высотой со всю страницу: фиксированная высота у html/body его ломает
+    assert.match(rule('body'), /min-height: 100vh;/);
+    assert.doesNotMatch(rule('body') + rule('html'), /(?<![-\w])height:/);
+    // Прокручивается страница: свой скролл у .main снова оторвал бы панель от прокрутки
+    assert.doesNotMatch(rule('.main'), /overflow(-y)?: (auto|scroll)/);
   });
 
   test('с доступом блок папки просит не закрывать страницу', async () => {

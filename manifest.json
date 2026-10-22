@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Uniform Design Checker",
   "short_name": "Uniform Design",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Снимайте одинаковые по логике блоки на разных страницах сайта и сравнивайте, где они выглядят по-разному. Отчёт в HTML и PDF.",
   "icons": {
     "16": "icons/icon16.png",

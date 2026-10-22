@@ -223,7 +223,7 @@ function fakeGitHub(releases) {
 }
 
 describe('GitHub Releases', () => {
-  const opts = (gh) => ({ tag: 'v1.1.0', notes: 'Коротко: …', target: 'develop', token: 't', fetchImpl: gh.fetchImpl });
+  const opts = (gh) => ({ tag: 'v1.1.0', notes: 'Коротко: …', target: 'main', token: 't', fetchImpl: gh.fetchImpl });
 
   test('syncDraft создаёт черновик, если его нет', async () => {
     const gh = fakeGitHub([{ id: 1, tag_name: 'v1.0.0', draft: false }]);
@@ -232,7 +232,7 @@ describe('GitHub Releases', () => {
     assert.equal(post.method, 'POST');
     assert.equal(post.url, 'https://api.github.com/repos/o/r/releases');
     assert.equal(post.auth, 'Bearer t');
-    assert.deepEqual(post.body, { tag_name: 'v1.1.0', name: 'v1.1.0', body: 'Коротко: …', draft: true, prerelease: false, target_commitish: 'develop' });
+    assert.deepEqual(post.body, { tag_name: 'v1.1.0', name: 'v1.1.0', body: 'Коротко: …', draft: true, prerelease: false, target_commitish: 'main' });
   });
 
   test('syncDraft обновляет существующий черновик и не трогает опубликованный релиз', async () => {
