@@ -3,7 +3,11 @@
 Все заметные изменения расширения. Формат — [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/), версии — [SemVer](https://semver.org/lang/ru/).
 Разделы собирает `npm run changelog-prepend` из сообщений коммитов; после сборки их можно поправить руками.
 
-## [1.0.1] — 2026-10-21
+## [1.1.0] — 2026-10-22
+
+### Новое
+
+- Навигация «В этом ревью» на странице ревью ([bec6fc3](https://github.com/allakin/Uniform-design-checker/commit/bec6fc3108d50734f8475b55fb2dae1766323af7))
 
 ### Исправления
 
