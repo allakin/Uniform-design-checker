@@ -11,6 +11,7 @@
 
 ### Исправления
 
+- Блок «Папка для результатов» снова прижат к низу панели ([87b553d](https://github.com/allakin/Uniform-design-checker/commit/87b553d4cb2e6532b071477c3d6ddcb8d92b0670))
 - Скриншот длинной страницы теперь снимается целиком — и когда она прокручивается внутренним контейнером, и когда выбран… ([c2e7c4a](https://github.com/allakin/Uniform-design-checker/commit/c2e7c4a34ec3c902626d8078ff5f59872ddb9aa7))
 
 ## [1.0.0] — 2026-10-21
