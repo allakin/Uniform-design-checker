@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "label": "Report tests",
+  "message": "passing",
+  "color": "4c1",
+  "namedLogo": "github",
+  "logoColor": "white",
+  "cacheSeconds": 300
+}
