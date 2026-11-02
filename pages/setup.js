@@ -5,7 +5,8 @@ import { icon } from '../lib/icons.js';
 const stateEl = document.getElementById('state');
 let restored = null; // итог восстановления ревью из только что выбранной папки
 // ?restore=1 — пришли из popup по кнопке «Восстановить ревью из папки»: короткий экран, папка только для чтения.
-const restoreMode = new URLSearchParams(location.search).has('restore');
+let restoreMode = new URLSearchParams(location.search).has('restore');
+let restoredPicked = null; // папка, выбранная при восстановлении, в которой ревью не нашлось: её можно взять для записи
 // ?grant=1 — пришли из popup по «разрешить»: браузер забыл доступ на запись, просим его по кнопке.
 let grantMode = new URLSearchParams(location.search).has('grant');
 let grantWritten = 0; // сколько ревью записал requestAccess — показываем в итоге
@@ -16,13 +17,14 @@ function showGrantIntro(on) {
   document.querySelector('.grant-intro').hidden = !on;
   document.querySelector('.connect-info').hidden = on;
 }
-if (grantMode) showGrantIntro(true);
-if (restoreMode) {
-  document.querySelector('.step').textContent = 'Восстановление';
-  document.querySelector('h1').textContent = 'Восстановите прошлые ревью';
-  document.querySelector('.restore-intro').hidden = false;
-  document.querySelector('.connect-info').hidden = true;
+function showRestoreIntro(on) {
+  document.querySelector('.step').textContent = on ? 'Восстановление' : intro.step;
+  document.querySelector('h1').textContent = on ? 'Восстановите прошлые ревью' : intro.h1;
+  document.querySelector('.restore-intro').hidden = !on;
+  document.querySelector('.connect-info').hidden = on;
 }
+if (grantMode) showGrantIntro(true);
+if (restoreMode) showRestoreIntro(true);
 
 async function shortcut() {
   const cmds = await chrome.commands.getAll();
@@ -37,7 +39,8 @@ function bindClose() {
 }
 
 // Итог восстановления: коротко, что вернулось, и что запись нужно будет разрешить в окне расширения.
-function renderRestored() {
+// Ревью не нашлось — папку можно взять для новых результатов или выбрать другую.
+function renderRestored(error = '') {
   const summary = folder.importSummary(restored);
   stateEl.innerHTML = restored.found
     ? `<div class="done">
@@ -46,10 +49,47 @@ function renderRestored() {
         <p>Осталось разрешить запись, чтобы новые замечания сохранялись в папку: в окне расширения нажмите «разрешить».</p>
         <div class="actions"><button class="btn btn-primary" data-act="close">Готово</button></div>
       </div>`
-    : `<div class="hint">В этой папке нет сохранённых ревью. Выберите папку, куда сохраняли результаты раньше.</div>
-       <button class="btn btn-primary btn-big" data-act="pick">${icon('folder', 18)} Выбрать другую папку</button>`;
+    : `<div class="hint">В этой папке нет сохранённых ревью. Если это новая папка для результатов — сохраняйте их сюда.
+         Если ревью лежат в другом месте — выберите ту папку.</div>
+       <div class="actions">
+         <button class="btn btn-primary" data-act="use">${icon('folder', 14)} Сохранять результаты сюда</button>
+         <button class="btn btn-light" data-act="pick">${icon('folderOpen', 14)} Выбрать другую папку</button>
+       </div>
+       ${error ? '<div class="error"></div>' : ''}`;
   if (summary && restored.found) stateEl.querySelector('.restored').textContent = summary;
   if (restored.found) bindClose();
+  else {
+    if (error) stateEl.querySelector('.error').textContent = error;
+    stateEl.querySelector('[data-act=use]').addEventListener('click', useRestored);
+  }
+}
+
+// «Сохранять результаты сюда»: только по клику — иначе браузер не покажет запрос разрешения на запись.
+// Ошибки — через общий render(): он же навешивает обработчик на «Выбрать другую папку».
+async function useRestored() {
+  let state;
+  try {
+    state = await folder.permission(restoredPicked, true);
+  } catch (e) {
+    return render(`Не удалось запросить доступ: ${e.message}`);
+  }
+  if (state !== 'granted') return render('Браузер не дал доступ на запись. Нажмите ещё раз и выберите «Разрешить».');
+  let dir;
+  try {
+    ({ dir } = await folder.connectResultsFolder(restoredPicked)); // уже в режиме записи
+  } catch (e) {
+    return render(`Не удалось подключить папку: ${e.message}`);
+  }
+  try {
+    await folder.writeAll(dir, await store.getAllReviews());
+  } catch (e) {
+    await folder.setStatus({ state: 'error', error: e.message });
+  }
+  restoreMode = false;
+  restored = null;
+  restoredPicked = null;
+  showRestoreIntro(false);
+  render();
 }
 
 // Экран «разрешить запись»: одна кнопка, по клику браузер показывает запрос с «Разрешать всегда».
@@ -106,7 +146,7 @@ async function renderGrant(error = '') {
 async function render(error = '') {
   if (grantMode) return renderGrant(error);
   if (restoreMode && restored) {
-    renderRestored();
+    renderRestored(error);
   } else {
     const dir = restoreMode ? null : await folder.getDir();
     const { [folder.KEY_FOLDER_STATUS]: status = {} } = await chrome.storage.local.get(folder.KEY_FOLDER_STATUS);
@@ -122,7 +162,8 @@ async function render(error = '') {
           <p>Результаты сохраняются в <code class="path"></code></p>
           ${summary ? `<p class="restored"></p>` : ''}
           ${
-            restored && !restored.found
+            // Подсказка нужна, только если папка пуста и записывать в неё нечего: иначе ревью в ней уже есть.
+            restored && !restored.found && !restored.written && !restored.failed.length
               ? `<div class="hint">В этой папке нет сохранённых ревью. Если раньше вы сохраняли результаты в другом месте —
                   <button class="link" data-act="pick">укажите ту папку</button>, и ревью подтянутся оттуда.</div>`
               : ''
@@ -144,17 +185,27 @@ async function render(error = '') {
 
 async function pick() {
   let dir;
+  let picked;
   try {
-    ({ dir } = await folder.pickResultsFolder({ readOnly: restoreMode }));
+    ({ dir, picked } = await folder.pickResultsFolder({ readOnly: restoreMode }));
   } catch (e) {
     if (e.name !== 'AbortError') render(`Не удалось ${restoreMode ? 'открыть' : 'подключить'} папку: ${e.message}`);
     return;
   }
   restored = null;
+  restoredPicked = null;
   try {
     restored = await folder.importFromFolder(dir); // ревью, сохранённые здесь раньше (например, до переустановки расширения)
+    if (restoreMode && !restored.found) {
+      restoredPicked = picked;
+      await folder.disconnectFolder(); // не привязывать молча папку, открытую только для чтения
+    }
     // При восстановлении папка открыта только для чтения — запись разрешат позже, в окне расширения.
-    if (!restoreMode) await folder.writeAll(dir, await store.getAllReviews());
+    if (!restoreMode) {
+      const reviews = await store.getAllReviews();
+      await folder.writeAll(dir, reviews);
+      restored.written = reviews.length;
+    }
   } catch (e) {
     if (restoreMode && !restored) return render(`Не удалось прочитать папку: ${e.message}`);
     await folder.setStatus({ state: 'error', error: e.message });
