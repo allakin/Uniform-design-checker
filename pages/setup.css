@@ -67,8 +67,8 @@ button { font: inherit; cursor: pointer; border: 0; border-radius: 12px; color: 
 .done { background: rgba(110, 231, 166, .07); border: 1px solid rgba(110, 231, 166, .25); border-radius: 16px; padding: 18px 20px; margin-top: 6px; }
 .done h2 { margin: 0 0 6px; font-size: 17px; font-weight: 600; color: var(--ok); }
 .done p { margin: 0 0 12px; font-size: 14px; }
-.done .actions { display: flex; gap: 8px; flex-wrap: wrap; }
-.done .btn-light { padding: 10px 16px; font-size: 14px; }
+.done .actions, #state > .actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.done .btn-light, #state > .actions .btn-light { padding: 10px 16px; font-size: 14px; }
 .error { color: var(--danger); font-size: 13px; margin-top: 10px; }
 
 .gi { display: inline-block; flex: none; vertical-align: -3px; }

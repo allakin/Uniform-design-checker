@@ -653,7 +653,9 @@ async function saveAllToFolder(dir, { restore = false } = {}) {
   folderEl.querySelector('.folder-state').textContent = restore ? 'Ищу сохранённые ревью…' : 'Сохраняю…';
   try {
     if (restore) restored = await folder.importFromFolder(dir);
-    await folder.writeAll(dir, await store.getAllReviews());
+    const reviews = await store.getAllReviews();
+    await folder.writeAll(dir, reviews);
+    if (restore) restored.written = reviews.length;
   } catch (e) {
     await folder.setStatus({ state: 'error', error: e.message });
   }
@@ -661,7 +663,9 @@ async function saveAllToFolder(dir, { restore = false } = {}) {
 
 function restoredHtml() {
   if (!restored) return '';
-  if (!restored.found) {
+  // Папка была пуста, но в неё только что записали ревью из расширения — «здесь нет ревью» сбивало бы с толку.
+  if (!restored.found && restored.written) return '';
+  if (!restored.found && !restored.failed.length) {
     return '<div class="folder-state warn">В этой папке нет сохранённых ревью. Сохраняли в другом месте? Нажмите «Сменить» и укажите ту папку</div>';
   }
   const summary = folder.importSummary(restored);

@@ -72,6 +72,7 @@ describe('connectResultsFolder', () => {
 
   test('выбрана папка расширения — берётся/создаётся uniform-reviews-results внутри', async () => {
     const picked = new MemDir('Uniform design checker');
+    picked.put('manifest.json', '{}');
     const { dir, project } = await folder.connectResultsFolder(picked);
     assert.equal(dir.name, 'uniform-reviews-results');
     assert.equal(picked.at('uniform-reviews-results'), dir);
@@ -96,12 +97,23 @@ describe('connectResultsFolder', () => {
     assert.equal(status().dirName, 'Мои ревью');
   });
 
-  test('только чтение: в папке расширения без uniform-reviews-results ничего не создаётся', async () => {
-    const picked = new MemDir('ext');
-    const { dir, project } = await folder.connectResultsFolder(picked, { readOnly: true });
+  test('своя пустая папка (не папка расширения) используется как есть — вложенная uniform-reviews-results не создаётся', async () => {
+    const picked = new MemDir('Новая папка');
+    const { dir, project } = await folder.connectResultsFolder(picked);
     assert.equal(dir, picked);
     assert.equal(project, '');
     assert.deepEqual(picked.list(), []);
+    assert.equal(await folder.getDir(), picked);
+    assert.equal(status().dirName, 'Новая папка');
+  });
+
+  test('только чтение: в папке расширения без uniform-reviews-results ничего не создаётся', async () => {
+    const picked = new MemDir('ext');
+    picked.put('manifest.json', '{}');
+    const { dir, project } = await folder.connectResultsFolder(picked, { readOnly: true });
+    assert.equal(dir, picked);
+    assert.equal(project, '');
+    assert.deepEqual(picked.list(), ['manifest.json']);
   });
 
   test('только чтение: существующая uniform-reviews-results внутри подхватывается', async () => {
@@ -127,8 +139,9 @@ describe('connectResultsFolder', () => {
     let opts;
     globalThis.showDirectoryPicker = async (o) => ((opts = o), new MemDir('uniform-reviews-results'));
     try {
-      const { dir } = await folder.pickResultsFolder();
+      const { dir, picked } = await folder.pickResultsFolder();
       assert.equal(dir.name, 'uniform-reviews-results');
+      assert.equal(picked, dir, 'возвращает и саму выбранную папку');
       assert.deepEqual(opts, { id: 'udc-results', mode: 'readwrite' });
     } finally {
       delete globalThis.showDirectoryPicker;

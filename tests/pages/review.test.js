@@ -599,6 +599,7 @@ describe('папка для результатов', () => {
     assert.ok(box.classList.contains('attention'));
     assert.match(box.textContent, /Не подключена/);
     const ext = new MemDir('Uniform design checker');
+    ext.put('manifest.json', '{}');
     globalThis.showDirectoryPicker = async () => ext;
     try {
       box.querySelector('[data-act=pick]').click();
@@ -627,8 +628,23 @@ describe('папка для результатов', () => {
     assert.match(page.$('#folder .folder-state.warn').textContent, /Восстановлено ревью из папки: 1\. Не удалось прочитать review\.json в папках: Битое\./);
   });
 
-  test('в выбранной папке нет сохранённых ревью — подсказка указать другую', async () => {
+  test('пустая папка: ревью из расширения записываются в неё, подсказки «нет сохранённых ревью» нет', async () => {
     const page = await seed({ withFolder: false });
+    const dir = new MemDir('uniform-reviews-results');
+    globalThis.showDirectoryPicker = async () => dir;
+    try {
+      page.$('#folder [data-act=pick]').click();
+      await sleep(150);
+    } finally {
+      delete globalThis.showDirectoryPicker;
+    }
+    assert.equal(dir.list().length, 3);
+    assert.doesNotMatch(page.$('#folder').textContent, /нет сохранённых ревью/);
+    assert.match(page.$('#folder').textContent, /Сохраняется автоматически/);
+  });
+
+  test('в выбранной папке нет сохранённых ревью и записывать нечего — подсказка указать другую', async () => {
+    const page = await loadPage('pages/review');
     globalThis.showDirectoryPicker = async () => new MemDir('uniform-reviews-results');
     try {
       page.$('#folder [data-act=pick]').click();
@@ -637,6 +653,21 @@ describe('папка для результатов', () => {
       delete globalThis.showDirectoryPicker;
     }
     assert.match(page.$('#folder').textContent, /нет сохранённых ревью.*«Сменить»/);
+  });
+
+  test('в папке только повреждённые review.json — сообщение о них, а не «нет сохранённых ревью»', async () => {
+    const page = await loadPage('pages/review');
+    const dir = new MemDir('uniform-reviews-results');
+    dir.put('Битое/review.json', '{');
+    globalThis.showDirectoryPicker = async () => dir;
+    try {
+      page.$('#folder [data-act=pick]').click();
+      await sleep(150);
+    } finally {
+      delete globalThis.showDirectoryPicker;
+    }
+    assert.doesNotMatch(page.$('#folder').textContent, /нет сохранённых ревью/);
+    assert.match(page.$('#folder .folder-state.warn').textContent, /Не удалось прочитать review\.json в папках: Битое\./);
   });
 
   test('отмена системного диалога выбора — без сообщений', async () => {

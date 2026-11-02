@@ -117,6 +117,7 @@ describe('страница первичной настройки', () => {
   test('выбор папки расширения подключает uniform-reviews-results внутри и сохраняет существующие ревью', async () => {
     const page = await loadPage('pages/setup', { setup: () => store.createReview({ title: 'Уже было' }) });
     const ext = new MemDir('Uniform design checker');
+    ext.put('manifest.json', '{}');
     globalThis.showDirectoryPicker = async () => ext;
     try {
       page.$('[data-act=pick]').click();
@@ -128,6 +129,21 @@ describe('страница первичной настройки', () => {
     assert.match(page.$('.done h2').textContent, /Папка подключена/);
     assert.equal(page.$('.path').textContent, 'Uniform design checker/uniform-reviews-results/');
     assert.match(page.$('.done').textContent, /⌥⇧D/);
+  });
+
+  test('своя пустая папка подключается как есть: ревью пишутся прямо в неё, без вложенной uniform-reviews-results', async () => {
+    const page = await loadPage('pages/setup', { setup: () => store.createReview({ title: 'Своё' }) });
+    const own = new MemDir('Новая папка');
+    globalThis.showDirectoryPicker = async () => own;
+    try {
+      page.$('[data-act=pick]').click();
+      await sleep(120);
+    } finally {
+      delete globalThis.showDirectoryPicker;
+    }
+    assert.equal(own.has('uniform-reviews-results'), false);
+    assert.match(own.list()[0], /^Своё — /);
+    assert.equal(page.$('.path').textContent, 'Новая папка/');
   });
 
   test('режим восстановления (?restore=1): свой заголовок, пояснение и кнопка', async () => {
@@ -243,6 +259,9 @@ describe('страница первичной настройки', () => {
       await sleep(120);
       assert.match(page.$('.hint').textContent, /нет сохранённых ревью/);
       assert.match(page.$('[data-act=pick]').textContent, /Выбрать другую папку/);
+      assert.match(page.$('[data-act=use]').textContent, /Сохранять результаты сюда/);
+      assert.equal(await folder.getDir(), undefined, 'папка, открытая только для чтения, молча не привязывается');
+      assert.equal(page.chrome.storage.local.data.get(folder.KEY_FOLDER_STATUS).state, 'no-folder');
       page.$('[data-act=pick]').click();
       await sleep(120);
     } finally {
@@ -250,6 +269,92 @@ describe('страница первичной настройки', () => {
     }
     assert.match(page.$('.done h2').textContent, /Ревью восстановлены/);
     assert.equal((await store.getReview('o')).title, 'Нашлось');
+  });
+
+  // Восстановление → пустая папка → «Сохранять результаты сюда».
+  async function restoreIntoEmpty(picked) {
+    const page = await loadPage('pages/setup', { query: '?restore=1', setup: () => store.createReview({ title: 'Новое' }) });
+    let opts;
+    globalThis.showDirectoryPicker = async (o) => ((opts = o), picked);
+    try {
+      page.$('[data-act=pick]').click();
+      await sleep(120);
+    } finally {
+      delete globalThis.showDirectoryPicker;
+    }
+    assert.equal(opts.mode, 'read');
+    page.$('[data-act=use]').click();
+    await sleep(120);
+    return page;
+  }
+
+  test('восстановление: «Сохранять результаты сюда» из своей пустой папки — запись прямо в неё', async () => {
+    const own = new MemDir('Новая папка', { permission: 'prompt' });
+    const page = await restoreIntoEmpty(own);
+    assert.equal(own.permission, 'granted', 'запись запрошена по клику');
+    assert.equal(await folder.getDir(), own);
+    assert.equal(own.has('uniform-reviews-results'), false);
+    assert.match(own.list()[0], /^Новое — /);
+    assert.match(page.$('.done h2').textContent, /Папка подключена/);
+    assert.equal(page.$('.path').textContent, 'Новая папка/');
+    assert.equal(page.$('h1').textContent, 'Подключите папку uniform-reviews-results');
+    assert.equal(page.$('.step').textContent, 'Первый запуск');
+    assert.equal(page.$('.restore-intro').hidden, true);
+    assert.equal(page.$('.hint'), null);
+    assert.equal(page.chrome.storage.local.data.get(folder.KEY_FOLDER_STATUS).state, 'ok');
+  });
+
+  test('восстановление: «Сохранять результаты сюда» из пустой папки расширения — uniform-reviews-results внутри', async () => {
+    const ext = new MemDir('Uniform design checker', { permission: 'prompt' });
+    ext.put('manifest.json', '{}');
+    const page = await restoreIntoEmpty(ext);
+    assert.deepEqual(ext.list(), ['manifest.json', 'uniform-reviews-results']);
+    assert.match(ext.list('uniform-reviews-results')[0], /^Новое — /);
+    assert.equal(await folder.getDir(), ext.at('uniform-reviews-results'));
+    assert.equal(page.$('.path').textContent, 'Uniform design checker/uniform-reviews-results/');
+  });
+
+  test('восстановление: «Сохранять результаты сюда» из пустой uniform-reviews-results — запись прямо в неё', async () => {
+    const results = new MemDir('uniform-reviews-results', { permission: 'prompt' });
+    results.put('.gitkeep', '');
+    const page = await restoreIntoEmpty(results);
+    assert.equal(await folder.getDir(), results);
+    assert.equal(results.has('uniform-reviews-results'), false);
+    assert.equal(results.list().length, 2);
+    assert.ok(results.list().some((n) => /^Новое — /.test(n)));
+    assert.equal(page.$('.path').textContent, 'uniform-reviews-results/');
+  });
+
+  test('восстановление: папка расширения с пустой uniform-reviews-results — «Сохранять сюда» пишет в неё, без вложенной', async () => {
+    const ext = new MemDir('Uniform design checker', { permission: 'prompt' });
+    ext.put('manifest.json', '{}');
+    ext.put('uniform-reviews-results/.gitkeep', '');
+    const page = await restoreIntoEmpty(ext);
+    const results = ext.at('uniform-reviews-results');
+    assert.equal(await folder.getDir(), results);
+    assert.equal(results.has('uniform-reviews-results'), false);
+    assert.ok(results.list().some((n) => /^Новое — /.test(n)));
+    assert.equal(page.$('.path').textContent, 'Uniform design checker/uniform-reviews-results/');
+  });
+
+  test('восстановление: браузер не дал запись — подсказка, обе кнопки работают, папка не привязана', async () => {
+    const own = new MemDir('Новая папка', { permission: 'prompt', grantOnRequest: false });
+    const page = await restoreIntoEmpty(own);
+    assert.match(page.$('.error').textContent, /Браузер не дал доступ/);
+    assert.ok(page.$('[data-act=use]'));
+    assert.equal(await folder.getDir(), undefined);
+    assert.deepEqual(own.list(), []);
+    assert.equal(page.$('h1').textContent, 'Восстановите прошлые ревью');
+    const other = new MemDir('Старые');
+    await folder.writeReview(other, { id: 'o2', title: 'Нашлось', createdAt: 0, updatedAt: 0, issues: [] });
+    globalThis.showDirectoryPicker = async () => other;
+    try {
+      page.$('[data-act=pick]').click();
+      await sleep(120);
+    } finally {
+      delete globalThis.showDirectoryPicker;
+    }
+    assert.match(page.$('.done h2').textContent, /Ревью восстановлены/, '«Выбрать другую папку» не потеряла обработчик');
   });
 
   test('первый запуск: выбрана папка расширения, в её uniform-reviews-results лежат прошлые ревью — подтягиваются сразу', async () => {
@@ -312,6 +417,22 @@ describe('страница первичной настройки', () => {
     assert.equal(page.$('.hint'), null);
     assert.equal(page.$('.path').textContent, 'Старые ревью/');
     assert.equal((await store.getReview('old-2')).title, 'Найдено');
+  });
+
+  test('пустая папка, в расширении уже есть ревью — они записываются туда, подсказки «нет сохранённых ревью» нет', async () => {
+    const page = await loadPage('pages/setup', { setup: () => store.createReview({ title: 'Первое' }) });
+    const dir = new MemDir('uniform-reviews-results');
+    dir.put('.gitkeep', '');
+    globalThis.showDirectoryPicker = async () => dir;
+    try {
+      page.$('[data-act=pick]').click();
+      await sleep(120);
+    } finally {
+      delete globalThis.showDirectoryPicker;
+    }
+    assert.ok(dir.list().some((n) => /^Первое — /.test(n)));
+    assert.match(page.$('.done h2').textContent, /Папка подключена/);
+    assert.equal(page.$('.hint'), null);
   });
 
   test('отмена системного диалога — без ошибки; прочие ошибки показываются', async () => {
